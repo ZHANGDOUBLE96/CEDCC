@@ -47,7 +47,7 @@ def generate_prompt_for_Building_Coreference_Chains_withGivenEntity(sentence):
 
 
 
-# Our three stage Complete prompt 
+# Our step_by_step Complete prompt 
 def generate_prompt_for_Complete_step_by_step_step1(sentence,context_bdoy):
     msg = [
         {
@@ -60,7 +60,7 @@ def generate_prompt_for_Complete_step_by_step_step1(sentence,context_bdoy):
         ### Task:
         You will receive a sentence with certain phrases surrounded by special markers "</BEGIN>" and "<END/>", along with the surrounding context of that sentence. For each marked phrase, you task is as follows:
         (1) Identify the context related to the marked phrase.
-        (2) output the related context
+        (2) Output the related context
         
         
         ### Output Requirements:
@@ -82,7 +82,7 @@ def generate_prompt_for_Complete_step_by_step_step1(sentence,context_bdoy):
         ]
     return msg
 
-# Our three stage Complete prompt 
+# Our step_by_step Complete prompt 
 def generate_prompt_for_Complete_step_by_step_step2(sentence,context_bdoy):
     msg = [
          {
