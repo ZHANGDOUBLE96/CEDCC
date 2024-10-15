@@ -359,3 +359,28 @@ def extract_json_from_LLM(sample_predict_result):
             return "error"
     except json.JSONDecodeError as e:
         return "error"
+
+def extract_complete_context_from_LLM(sample_predict_result):
+    try:
+        if(isinstance(sample_predict_result,str)):
+            if(sample_predict_result.find("```json")!=-1):
+                start_index = sample_predict_result.find("```json")
+                sample_predict_result = sample_predict_result[start_index:sample_predict_result.find("```",start_index+len("```json"))]
+            sample_predict_result = sample_predict_result.replace("```json", "").replace("```", "").strip()
+
+            start = sample_predict_result.find('[')
+            end = sample_predict_result.rfind(']')
+            
+
+            if start != -1 and end != -1 and end > start:
+                sample_predict_result =  sample_predict_result[start:end+1]
+                sample_predict_result = json.loads(sample_predict_result)  
+            else:
+                return "error"
+
+        if(isinstance(sample_predict_result,list) or isinstance(sample_predict_result,dict)):
+            return sample_predict_result
+        else:
+            return "error"
+    except json.JSONDecodeError as e:
+        return "error"

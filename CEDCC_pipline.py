@@ -7,8 +7,8 @@ import json
 from LLM_prompt import generate_prompt_for_Building_Coreference_Chains_withGivenEntity
 from utils import process_string_by_adding_special_markers
 from utils import send_request_with_retry
-from utils import extract_json_from_LLM
-
+from utils import extract_json_from_LLM,extract_complete_context_from_LLM
+from LLM_prompt import generate_prompt_for_Complete_step_by_step_step1,generate_prompt_for_Complete_step_by_step_step2
 def load_spacy_processor():
     
     nlp = spacy.load("en_core_web_sm")
@@ -64,12 +64,32 @@ def predict_unclear_tokens_with_CorefChain_after_given_entity(sample_process_sen
     
     to_prompt_sentence = process_string_by_adding_special_markers(sample_process_sentence,to_be_replace_for_predict_tokens)
     msg = generate_prompt_for_Building_Coreference_Chains_withGivenEntity(to_prompt_sentence)
-    
     response = send_request_with_retry(msg, api_key="",api_url="https://api.openai.com/v1",model_type="gpt-4-0613",max_retries=5, retry_interval=60)
     annotation_result = response["choices"][0]["message"]["content"]
     return annotation_result
 
-
+def complete_context_step_by_step(to_prompt_sentence,context_body):
+    other_answer_body = ""
+    answer_cnt = 1
+    for cur_answer in context_body['other_answers']:
+        other_answer_body += "Other Answer {}: {}\n\n\n".format(answer_cnt,cur_answer)
+        answer_cnt += 1
+    other_comment_body = ""
+    comment_cnt = 1
+    for cur_comment in context_body['comments']:
+        other_comment_body += "Comments {}: {}\n\n\n".format(comment_cnt,cur_comment)
+        comment_cnt += 1
+    construct_context_body = "Question:{}\n\n\nthe Answer to which the marked sentence belong:{}\n\n\n{}{}".format(context_body['question'],context_body['accpeted_answer'],other_answer_body,other_comment_body)
+    
+    msg_step_1 = generate_prompt_for_Complete_step_by_step_step1(to_prompt_sentence,construct_context_body)
+    response_msg_step_1 = send_request_with_retry(msg_step_1, api_key="",api_url="https://api.openai.com/v1",model_type="gpt-4-0613",max_retries=5, retry_interval=60)
+    raw_related_context = response_msg_step_1["choices"][0]["message"]["content"]
+    
+    msg_step_2 = generate_prompt_for_Complete_step_by_step_step2(to_prompt_sentence,raw_related_context)
+    response_msg_step_2 = send_request_with_retry(msg_step_2, api_key="",api_url="https://api.openai.com/v1",model_type="gpt-4-0613",max_retries=5, retry_interval=60)
+    raw_completed_context = response_msg_step_2["choices"][0]["message"]["content"]
+    
+    return raw_completed_context
 
 if __name__=='__main__':
     sample_sentence = "We can use pd.melt to make the hour columns into one column with that value"
@@ -260,4 +280,15 @@ if __name__=='__main__':
             unclear_tokens_indices_list.append(ref_entity)
     
     
-    print(unclear_tokens_indices_list)
+    if(len(unclear_tokens_indices_list)>0):
+        to_prompt_sentence = process_string_by_adding_special_markers(sample_sentence,[element [1] for element in unclear_tokens_indices_list])
+        raw_completed_context = complete_context_step_by_step(to_prompt_sentence,context_body)
+        completed_context = extract_complete_context_from_LLM(raw_completed_context)
+        if(not isinstance(completed_context,list)):
+            print("parse error")
+        else:
+            for cur_context_pairs in completed_context:
+                print("'{}' in the sentence '{}' is context-dependent entity, it refers to {}".format(cur_context_pairs['NP'],sample_sentence,cur_context_pairs['Value']))
+    else:
+        print("There is no context-dependent entity in the sentence")
+    
